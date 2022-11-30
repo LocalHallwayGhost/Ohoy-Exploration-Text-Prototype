@@ -127,6 +127,8 @@ namespace Ohoy_Exploration_Prototype
         //Game Variables
         const int PrintPauseMilliseconds = 200;
 
+        static Random random = new();
+
         static List<Island> Islands;
 
         static Ship PlayerShip;
@@ -173,11 +175,46 @@ namespace Ohoy_Exploration_Prototype
                 Landmarks.Add(landmark);
             }
         }
+        /// <summary>
+        /// Method to which outputs a shape for our islands.
+        /// </summary>
+        /// <returns></returns>
+        static int GenerateIslandShape()
+        {
+            int shapeNumber = random.Next(9);
+            return shapeNumber;
+        }
+        /// <summary>
+        /// This method generates a position/point for the island and checks whether if the island will collide with another island, continuing to generate points until the island doesn't collide with anything.
+        /// </summary>
+        /// <returns></returns>
+        static Point GenerateIslandPoint()
+        {
+            while (true)
+            {
+                Point islandPoint = new Point(random.Next(AsciiSeaMap.Width - 20), random.Next(AsciiSeaMap.Height - 20));
+                bool doesOverlap = DoesOverlapIsland(islandPoint, 20, out _);
+                if (!doesOverlap)
+                {
+                    return islandPoint;
+                }
+            }
+        }
 
+        static void ShuffleIslands(List<string> islandNames)
+        {
+            for (int i = 0; i <= islandNames.Count - 2; i++)
+            {
+                int j = random.Next(i, islandNames.Count);
+                string temp = islandNames[i];
+                islandNames[i] = islandNames[j];
+                islandNames[j] = temp;
+            }
+        }
         static void InitializeObjects()
         {
             //Initialize The Map
-            AsciiSeaMap = new Map(2000, 1000);
+            AsciiSeaMap = new Map(1000, 500);
 
             //Initialize Camera
             PlayerCamera = new Camera
@@ -197,43 +234,35 @@ namespace Ohoy_Exploration_Prototype
             CurrentScreen = new Screen(PlayerCamera.Width, PlayerCamera.Height);
             NextScreen = new Screen(PlayerCamera.Width, PlayerCamera.Height);
 
-            //Random names for islands
+            //Initializing names for islands
             List<string> islandNames = new List<string>(IslandNames);
 
-            //Random landmarks for islands
+            //Initializing landmarks for islands
             List<Landmark> landmarks = new List<Landmark>();
             for (int i = 0; i < 4; i++)
             {
                 landmarks.AddRange(Landmarks);
             }
+
             //Generate all Islands
             Islands = new List<Island>();
-            //For Loop where i corresponds to both the amount of islands as well as pulling out landmarks for the island, since the landmarks doesn't need to be randomized. 
-            /*
+
+            //Shuffle order of islands to randomize them
+            ShuffleIslands(islandNames);
+
+            //Make an island, 24 times.
             for (int i = 0; i < 24; i++)
             {
                 Island newIsland = new Island
                 {
-                    Name = islandNames[19],
+                    Name = islandNames[i],
                     Landmark = landmarks[i],
                     Explored = true,
-                    Position = GenerateIslandPosition(),
-                    Sprite = IslandSprites[7],
+                    Position = GenerateIslandPoint(),
+                    Sprite = IslandSprites[GenerateIslandShape()],
                 };
                 Islands.Add(newIsland);
-            }*/
-
-
-            Island newIsland = new Island
-            {
-                Name = islandNames[20],
-                Landmark = landmarks[4],
-                Explored = true,
-                Position = new Point(40, 10),
-                Sprite = IslandSprites[3],
-            };
-            Islands.Add(newIsland);
-
+            }
 
             //Initialize Ship
             PlayerShip = new Ship
@@ -247,40 +276,40 @@ namespace Ohoy_Exploration_Prototype
             PlayerShip.Sprites[CardinalDirection.East] = ReadSprite("Sprites/Ship/East.txt");
             PlayerShip.Sprites[CardinalDirection.West] = ReadSprite("Sprites/Ship/West.txt");
         }
-        //Method that screens.
-        static void DrawNextScreen()
-        {
-            for (int y = 0; y < NextScreen.Height; y++)
-            {
-                for (int x = 0; x < NextScreen.Width; x++)
-                {
-                    bool backgroundIsDifferent = NextScreen.Characters[x, y].BackgroundColor != CurrentScreen.Characters[x, y].BackgroundColor;
-                    bool foregroundIsDifferent = NextScreen.Characters[x, y].ForegroundColor != CurrentScreen.Characters[x, y].ForegroundColor;
-                    bool symbolIsDifferent = NextScreen.Characters[x, y].Symbol != CurrentScreen.Characters[x, y].Symbol;
-                    bool characterIsDifferent = symbolIsDifferent || foregroundIsDifferent || backgroundIsDifferent;
-                    if (characterIsDifferent)
-                    {
 
-                        if (Console.ForegroundColor != NextScreen.Characters[x, y].ForegroundColor)
-                        {
-                            Console.ForegroundColor = NextScreen.Characters[x, y].ForegroundColor;
-                        }
-                        if (Console.BackgroundColor != NextScreen.Characters[x, y].BackgroundColor)
-                        {
-                            Console.BackgroundColor = NextScreen.Characters[x, y].BackgroundColor;
-                        }
-                        Console.SetCursorPosition(x, y);
-                        Console.Write(NextScreen.Characters[x, y].Symbol);
-                    }
-                }
+        /// <summary>
+        /// This method prints the text within the confines of the console screen.
+        /// </summary>
+        /// <param name="text"></param>
+        static void Print(string text)
+        {
+            //Split text into lines that don't exceed the window width.
+            int maximumLineLength = Console.WindowWidth - 1;
+            MatchCollection lineMatches = Regex.Matches(text, @"(.{1," + maximumLineLength + @"})(?:\s|$)");
+
+
+            //Output each line.
+            foreach (Match match in lineMatches)
+            {
+                Console.WriteLine(match.Groups[0].Value);
+                Thread.Sleep(PrintPauseMilliseconds);
             }
-            Screen temp = CurrentScreen;
-            CurrentScreen = NextScreen;
-            NextScreen = temp;
         }
 
+        //Method that writes on the screen wit Map-coordinates
+        static void ScreenWriteMap(int mapX, int mapY, string text)
+        {
+            int screenX = mapX - PlayerCamera.Position.X;
+            int screenY = mapY - PlayerCamera.Position.Y;
+            ScreenWrite(screenX, screenY, text);
+        }
+        static void ScreenWriteMap(int mapX, int mapY, char symbol)
+        {
+            int screenX = mapX - PlayerCamera.Position.X;
+            int screenY = mapY - PlayerCamera.Position.Y;
+            ScreenWrite(screenX, screenY, symbol);
+        }
 
-        //Method that draws.
         static void ScreenWrite(int x, int y, string text)
         {
             for (int i = 0; i < text.Length; i++)
@@ -290,10 +319,37 @@ namespace Ohoy_Exploration_Prototype
         }
         static void ScreenWrite(int x, int y, char symbol)
         {
-            NextScreen.Characters[x, y].Symbol = symbol;
-            NextScreen.Characters[x, y].BackgroundColor = Screen.BackgroundColor;
-            NextScreen.Characters[x, y].ForegroundColor = Screen.ForegroundColor;
+            if (x >= 0 && x < NextScreen.Width && y >= 0 && y < NextScreen.Height)
+            {
+                NextScreen.Characters[x, y].Symbol = symbol;
+                NextScreen.Characters[x, y].BackgroundColor = Screen.BackgroundColor;
+                NextScreen.Characters[x, y].ForegroundColor = Screen.ForegroundColor;
+            }
+
         }
+
+        static void CenterCamera()
+        {
+            PlayerCamera.Position.X = PlayerShip.Position.X - (PlayerCamera.Width / 2);
+            PlayerCamera.Position.Y = PlayerShip.Position.Y - (PlayerCamera.Height / 2);
+            if (PlayerCamera.Position.X < 0)
+            {
+                PlayerCamera.Position.X = 0;
+            }
+            else if (PlayerCamera.Position.X > AsciiSeaMap.Width - PlayerCamera.Width)
+            {
+                PlayerCamera.Position.X = AsciiSeaMap.Width - PlayerCamera.Width;
+            }
+            if (PlayerCamera.Position.Y < 0)
+            {
+                PlayerCamera.Position.Y = 0;
+            }
+            else if (PlayerCamera.Position.Y > AsciiSeaMap.Height - PlayerCamera.Height)
+            {
+                PlayerCamera.Position.Y = AsciiSeaMap.Height - PlayerCamera.Height;
+            }
+        }
+
         /// <summary>
         /// A method which reads the sprites out of the textfiles, allowing the program to draw the sprites later.
         /// </summary>
@@ -362,46 +418,19 @@ namespace Ohoy_Exploration_Prototype
             {
                 for (int x = 0; x < sprite.Width; x++)
                 {
-                    if (position.X + x < NextScreen.Width && position.Y + y < NextScreen.Height)
+                    if (sprite.CharacterMap[x, y] == '.')
                     {
-                        if (sprite.CharacterMap[x, y] == '.')
-                        {
-                            ScreenWrite(position.X + x, position.Y + y, ' ');
-                        }
-                        else if (sprite.CharacterMap[x, y] != ' ')
-                        {
-                            Screen.ForegroundColor = sprite.Color;
-                            ScreenWrite(position.X + x, position.Y + y, sprite.CharacterMap[x, y]);
-                        }
+                        ScreenWriteMap(position.X + x, position.Y + y, ' ');
+                    }
+                    else if (sprite.CharacterMap[x, y] != ' ')
+                    {
+                        Screen.ForegroundColor = sprite.Color;
+                        ScreenWriteMap(position.X + x, position.Y + y, sprite.CharacterMap[x, y]);
                     }
                 }
             }
         }
 
-        static void DrawString(string text, Point point)
-        {
-            if (point.Y >= NextScreen.Height || point.Y < 0 || point.X >= NextScreen.Width || point.X + text.Length < 0)
-            {
-                return;
-            }
-
-            if (point.X < 0)
-            {
-                int textStartIndex = Math.Abs(point.X);
-                text = text.Substring(textStartIndex);
-                ScreenWrite(0, point.Y, text);
-            }
-            else if (point.X + text.Length > NextScreen.Width)
-            {
-                int textLength = NextScreen.Width - point.X;
-                text = text.Substring(0, textLength);
-                ScreenWrite(point.X, point.Y, text);
-            }
-            else
-            {
-                ScreenWrite(point.X, point.Y, text);
-            }
-        }
         static void DrawShip()
         {
             Sprite currentShipSprite = PlayerShip.Sprites[PlayerShip.CardinalDirection];
@@ -432,29 +461,33 @@ namespace Ohoy_Exploration_Prototype
                         Screen.ForegroundColor = Landmark.Color;
                         DrawString(Landmark.LandmarkSymbol, global);
                     }
-                    else if (globalX < NextScreen.Width && globalX >= 0 && globalY < NextScreen.Height && globalY >= 0)
+                    else
                     {
-
                         if (explored == false && sprite.CharacterMap[x, y] == 'N')
                         {
-                            ScreenWrite(globalX, globalY, ' ');
+                            ScreenWriteMap(globalX, globalY, ' ');
                         }
                         else if (sprite.CharacterMap[x, y] == '.')
                         {
-                            ScreenWrite(globalX, globalY, ' ');
+                            ScreenWriteMap(globalX, globalY, ' ');
                         }
                         else if (sprite.CharacterMap[x, y] != ' ')
                         {
                             Screen.ForegroundColor = sprite.Color;
-                            ScreenWrite(globalX, globalY, sprite.CharacterMap[x, y]);
+                            ScreenWriteMap(globalX, globalY, sprite.CharacterMap[x, y]);
                         }
                     }
+
                 }
             }
         }
         static void DrawFogOfWar()
         {
 
+        }
+        static void DrawString(string text, Point point)
+        {
+            ScreenWriteMap(point.X, point.Y, text);
         }
         static void DrawMap()
         {
@@ -463,19 +496,41 @@ namespace Ohoy_Exploration_Prototype
             foreach (Island island in Islands)
             {
                 DrawIsland(island);
-
             }
             DrawShip();
         }
-        /*
-        static Point GenerateIslandPosition()
+
+        //Method that screens.
+        static void DrawNextScreen()
         {
-            //Generate a random map position.
+            for (int y = 0; y < NextScreen.Height; y++)
+            {
+                for (int x = 0; x < NextScreen.Width; x++)
+                {
+                    bool backgroundIsDifferent = NextScreen.Characters[x, y].BackgroundColor != CurrentScreen.Characters[x, y].BackgroundColor;
+                    bool foregroundIsDifferent = NextScreen.Characters[x, y].ForegroundColor != CurrentScreen.Characters[x, y].ForegroundColor;
+                    bool symbolIsDifferent = NextScreen.Characters[x, y].Symbol != CurrentScreen.Characters[x, y].Symbol;
+                    bool characterIsDifferent = symbolIsDifferent || foregroundIsDifferent || backgroundIsDifferent;
+                    if (characterIsDifferent)
+                    {
 
-            //Check that the position doesn't clash with already made islands.
-
-            // if it clashes, make a new random position, if it doesn't clash return the position for the island.
-        }*/
+                        if (Console.ForegroundColor != NextScreen.Characters[x, y].ForegroundColor)
+                        {
+                            Console.ForegroundColor = NextScreen.Characters[x, y].ForegroundColor;
+                        }
+                        if (Console.BackgroundColor != NextScreen.Characters[x, y].BackgroundColor)
+                        {
+                            Console.BackgroundColor = NextScreen.Characters[x, y].BackgroundColor;
+                        }
+                        Console.SetCursorPosition(x, y);
+                        Console.Write(NextScreen.Characters[x, y].Symbol);
+                    }
+                }
+            }
+            Screen temp = CurrentScreen;
+            CurrentScreen = NextScreen;
+            NextScreen = temp;
+        }
 
         static bool DoesOverlapIsland(Point mapGlobalPositionCenter, int radius, out Island overlappingIsland)
         {
@@ -519,25 +574,15 @@ namespace Ohoy_Exploration_Prototype
             overlappingIsland = null;
             return false;
         }
-
-        /// <summary>
-        /// This method prints the text within the confines of the console screen.
-        /// </summary>
-        /// <param name="text"></param>
-        static void Print(string text)
+        /*
+        static Point GenerateIslandPosition()
         {
-            //Split text into lines that don't exceed the window width.
-            int maximumLineLength = Console.WindowWidth - 1;
-            MatchCollection lineMatches = Regex.Matches(text, @"(.{1," + maximumLineLength + @"})(?:\s|$)");
+            //Generate a random map position.
 
+            //Check that the position doesn't clash with already made islands.
 
-            //Output each line.
-            foreach (Match match in lineMatches)
-            {
-                Console.WriteLine(match.Groups[0].Value);
-                Thread.Sleep(PrintPauseMilliseconds);
-            }
-        }
+            // if it clashes, make a new random position, if it doesn't clash return the position for the island.
+        }*/
         #region introscreens
         /// <summary>
         /// This Method Presents the Title Screen, presenting the player with the game that they will be playing.
@@ -624,6 +669,7 @@ namespace Ohoy_Exploration_Prototype
             {
 
                 //Draw Map
+                CenterCamera();
                 DrawMap();
                 DrawNextScreen();
 
@@ -636,7 +682,7 @@ namespace Ohoy_Exploration_Prototype
                 Point mapShipCenter = new Point(PlayerShip.Position.X + shipShipCenter.X, PlayerShip.Position.Y + shipShipCenter.Y);
                 Point pointIWantToGoTo = mapShipCenter;
 
-                if (pressedKey == ConsoleKey.RightArrow && PlayerShip.Position.X < AsciiSeaMap.Width)
+                if (pressedKey == ConsoleKey.RightArrow && PlayerShip.Position.X < AsciiSeaMap.Width - PlayerShip.Sprites[CardinalDirection.East].Width)
                 {
                     PlayerShip.CardinalDirection = CardinalDirection.East;
                     pointIWantToGoTo.X++;
@@ -646,7 +692,7 @@ namespace Ohoy_Exploration_Prototype
                     PlayerShip.CardinalDirection = CardinalDirection.West;
                     pointIWantToGoTo.X--;
                 }
-                else if (pressedKey == ConsoleKey.DownArrow && PlayerShip.Position.Y < AsciiSeaMap.Height)
+                else if (pressedKey == ConsoleKey.DownArrow && PlayerShip.Position.Y < AsciiSeaMap.Height - PlayerShip.Sprites[CardinalDirection.South].Height)
                 {
                     PlayerShip.CardinalDirection = CardinalDirection.South;
                     pointIWantToGoTo.Y++;
@@ -664,7 +710,6 @@ namespace Ohoy_Exploration_Prototype
                 if (validSpace)
                 {
                     PlayerShip.Position = new Point(pointIWantToGoTo.X - shipShipCenter.X, pointIWantToGoTo.Y - shipShipCenter.Y);
-                    /*PlayerCamera.Position = PlayerShip.Position;*/
                 }
             }
         }
