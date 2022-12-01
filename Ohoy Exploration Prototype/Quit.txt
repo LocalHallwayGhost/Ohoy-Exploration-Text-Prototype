@@ -1,0 +1,2 @@
+﻿If you wish to quit the game, press the ESCAPE-key. :(
+Otherwise, press the ENTER-key to return to the ASCII-sea! :)

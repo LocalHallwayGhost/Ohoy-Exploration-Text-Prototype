@@ -7,10 +7,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Quit.txt" />
     <None Remove="Sprites\Landmarks\Rivers.txt" />
   </ItemGroup>
 
   <ItemGroup>
+	<Content Include="Quit.txt">
+	  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	</Content>
 	<Content Include="Sprites\Islands\Shape1.txt">
 		<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 	</Content>

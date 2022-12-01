@@ -71,7 +71,7 @@ namespace Ohoy_Exploration_Prototype
             public Point Position;
             public CardinalDirection CardinalDirection;
             public Dictionary<CardinalDirection, Sprite> Sprites = new Dictionary<CardinalDirection, Sprite>();
-
+            public Point ShipCenter = new Point(4, 2);
         }
         class Map
         {
@@ -146,6 +146,8 @@ namespace Ohoy_Exploration_Prototype
         static Screen CurrentScreen;
 
         static Screen NextScreen;
+
+        static bool ShouldQuit;
         static void LoadData()
         {
             //Load IslandNames
@@ -216,6 +218,16 @@ namespace Ohoy_Exploration_Prototype
             //Initialize The Map
             AsciiSeaMap = new Map(1000, 500);
 
+            //Initialize the FogOfWar
+            AsciiSeaMap.FogOfWar = new Map(1000, 500).FogOfWar;
+            for (int fogY = 0; fogY < AsciiSeaMap.Height; fogY++)
+            {
+                for (int fogX = 0; fogX < AsciiSeaMap.Width; fogX++)
+                {
+                    AsciiSeaMap.FogOfWar[fogX, fogY] = true;
+                }
+            }
+
             //Initialize Camera
             PlayerCamera = new Camera
             {
@@ -244,6 +256,22 @@ namespace Ohoy_Exploration_Prototype
                 landmarks.AddRange(Landmarks);
             }
 
+
+            //Initialize Ship
+            PlayerShip = new Ship
+            {
+                Position = new Point(AsciiSeaMap.Width / 2, AsciiSeaMap.Height / 2),
+                CardinalDirection = CardinalDirection.North,
+            };
+
+            PlayerShip.Sprites[CardinalDirection.North] = ReadSprite("Sprites/Ship/North.txt");
+            PlayerShip.Sprites[CardinalDirection.South] = ReadSprite("Sprites/Ship/South.txt");
+            PlayerShip.Sprites[CardinalDirection.East] = ReadSprite("Sprites/Ship/East.txt");
+            PlayerShip.Sprites[CardinalDirection.West] = ReadSprite("Sprites/Ship/West.txt");
+
+            //Clear a lil bit of fog
+            ClearFogOfWar();
+
             //Generate all Islands
             Islands = new List<Island>();
 
@@ -264,17 +292,6 @@ namespace Ohoy_Exploration_Prototype
                 Islands.Add(newIsland);
             }
 
-            //Initialize Ship
-            PlayerShip = new Ship
-            {
-                Position = new Point(50, 25),
-                CardinalDirection = CardinalDirection.North,
-            };
-
-            PlayerShip.Sprites[CardinalDirection.North] = ReadSprite("Sprites/Ship/North.txt");
-            PlayerShip.Sprites[CardinalDirection.South] = ReadSprite("Sprites/Ship/South.txt");
-            PlayerShip.Sprites[CardinalDirection.East] = ReadSprite("Sprites/Ship/East.txt");
-            PlayerShip.Sprites[CardinalDirection.West] = ReadSprite("Sprites/Ship/West.txt");
         }
 
         /// <summary>
@@ -483,7 +500,17 @@ namespace Ohoy_Exploration_Prototype
         }
         static void DrawFogOfWar()
         {
-
+            Screen.BackgroundColor = ConsoleColor.Black;
+            for (int y = 0; y < PlayerCamera.Height; y++)
+            {
+                for (int x = 0; x < PlayerCamera.Width; x++)
+                {
+                    if (AsciiSeaMap.FogOfWar[x + PlayerCamera.Position.X, y + PlayerCamera.Position.Y])
+                    {
+                        ScreenWrite(x, y, ' ');
+                    }
+                }
+            }
         }
         static void DrawString(string text, Point point)
         {
@@ -498,6 +525,7 @@ namespace Ohoy_Exploration_Prototype
                 DrawIsland(island);
             }
             DrawShip();
+            DrawFogOfWar();
         }
 
         //Method that screens.
@@ -513,7 +541,6 @@ namespace Ohoy_Exploration_Prototype
                     bool characterIsDifferent = symbolIsDifferent || foregroundIsDifferent || backgroundIsDifferent;
                     if (characterIsDifferent)
                     {
-
                         if (Console.ForegroundColor != NextScreen.Characters[x, y].ForegroundColor)
                         {
                             Console.ForegroundColor = NextScreen.Characters[x, y].ForegroundColor;
@@ -574,15 +601,28 @@ namespace Ohoy_Exploration_Prototype
             overlappingIsland = null;
             return false;
         }
-        /*
-        static Point GenerateIslandPosition()
+
+        static void ClearFogOfWar()
         {
-            //Generate a random map position.
+            int radius = 11;
+            for (int offsetY = -radius; offsetY <= radius; offsetY++)
+            {
+                for (int offsetX = -radius * 2; offsetX <= radius * 2; offsetX++)
+                {
+                    Point currentPoint = new Point(PlayerShip.Position.X + PlayerShip.ShipCenter.X + offsetX, PlayerShip.Position.Y + PlayerShip.ShipCenter.Y + offsetY);
 
-            //Check that the position doesn't clash with already made islands.
+                    double deltaX = offsetX / 2;
+                    double deltaY = offsetY;
+                    double distance = Math.Pow(deltaX, 2) + Math.Pow(deltaY, 2);
+                    double square = Math.Sqrt(Math.Pow(deltaX, 2) + Math.Pow(deltaY, 2));
 
-            // if it clashes, make a new random position, if it doesn't clash return the position for the island.
-        }*/
+                    if (currentPoint.Y >= 0 && currentPoint.Y < AsciiSeaMap.Height && currentPoint.X >= 0 && currentPoint.X < AsciiSeaMap.Width && square < radius)
+                    {
+                        AsciiSeaMap.FogOfWar[currentPoint.X, currentPoint.Y] = false;
+                    }
+                }
+            }
+        }
         #region introscreens
         /// <summary>
         /// This Method Presents the Title Screen, presenting the player with the game that they will be playing.
@@ -628,6 +668,31 @@ namespace Ohoy_Exploration_Prototype
         }
         #endregion
 
+        static void QuitScreen()
+        {
+            Console.BackgroundColor = ConsoleColor.Black;
+            Console.ForegroundColor = ConsoleColor.DarkYellow;
+            Console.Clear();
+            string[] quit = File.ReadAllLines("Quit.txt");
+            Console.SetCursorPosition(Console.WindowWidth / 3, Console.WindowHeight / 2);
+            Print(quit[0]);
+            Console.SetCursorPosition(Console.WindowWidth / 3, Console.WindowHeight / 2 + 1);
+            Print(quit[1]);
+            while (true)
+            {
+                ConsoleKeyInfo keyInfo = Console.ReadKey(true);
+                ConsoleKey pressedKey = keyInfo.Key;
+                if (pressedKey == ConsoleKey.Enter)
+                {
+                    return;
+                }
+                else if (pressedKey == ConsoleKey.Escape)
+                {
+                    ShouldQuit = true;
+                    return;
+                }
+            }
+        }
         /// <summary>
         /// This method houses the actual gameplay-loop, covering everything from sailing to fighting and clues.
         /// </summary>
@@ -637,7 +702,10 @@ namespace Ohoy_Exploration_Prototype
             while (true)
             {
                 DoSailingLoop();
-
+                if (ShouldQuit)
+                {
+                    return false;
+                }
                 //TODO: Figure out if on treasure island.
                 bool onTreasureIsland = false;
 
@@ -678,11 +746,22 @@ namespace Ohoy_Exploration_Prototype
                 ConsoleKey pressedKey = keyInfo.Key;
 
                 //Figure out where we want to go
-                Point shipShipCenter = new Point(4, 2);
-                Point mapShipCenter = new Point(PlayerShip.Position.X + shipShipCenter.X, PlayerShip.Position.Y + shipShipCenter.Y);
+
+                Point mapShipCenter = new Point(PlayerShip.Position.X + PlayerShip.ShipCenter.X, PlayerShip.Position.Y + PlayerShip.ShipCenter.Y);
                 Point pointIWantToGoTo = mapShipCenter;
 
-                if (pressedKey == ConsoleKey.RightArrow && PlayerShip.Position.X < AsciiSeaMap.Width - PlayerShip.Sprites[CardinalDirection.East].Width)
+                if (pressedKey == ConsoleKey.Escape)
+                {
+                    QuitScreen();
+                    if (ShouldQuit)
+                    {
+                        return;
+                    }
+                    CurrentScreen.Clear();
+                    Console.Clear();
+                    continue;
+                }
+                else if (pressedKey == ConsoleKey.RightArrow && PlayerShip.Position.X < AsciiSeaMap.Width - PlayerShip.Sprites[CardinalDirection.East].Width)
                 {
                     PlayerShip.CardinalDirection = CardinalDirection.East;
                     pointIWantToGoTo.X++;
@@ -709,7 +788,8 @@ namespace Ohoy_Exploration_Prototype
                 //Move the ship and camera if there is not an island at the position you are trying to go to.
                 if (validSpace)
                 {
-                    PlayerShip.Position = new Point(pointIWantToGoTo.X - shipShipCenter.X, pointIWantToGoTo.Y - shipShipCenter.Y);
+                    PlayerShip.Position = new Point(pointIWantToGoTo.X - PlayerShip.ShipCenter.X, pointIWantToGoTo.Y - PlayerShip.ShipCenter.Y);
+                    ClearFogOfWar();
                 }
             }
         }
@@ -751,6 +831,10 @@ namespace Ohoy_Exploration_Prototype
                 PresentTutorialScreen();
                 */
                 bool foundTreasure = DoGameplayLoop();
+                if (ShouldQuit)
+                {
+                    return;
+                }
                 if (foundTreasure)
                 {
                     PresentWinScreen();
