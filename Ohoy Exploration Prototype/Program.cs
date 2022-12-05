@@ -87,14 +87,12 @@ namespace Ohoy_Exploration_Prototype
                 FogOfWar = new bool[Width, Height];
             }
         }
-
         struct ScreenCharacter
         {
             public char Symbol;
             public ConsoleColor ForegroundColor;
             public ConsoleColor BackgroundColor;
         }
-
         class Screen
         {
             public static ConsoleColor ForegroundColor;
@@ -135,13 +133,19 @@ namespace Ohoy_Exploration_Prototype
 
         static Random random = new();
 
+        static string[] IslandNames;
+
         static List<Island> Islands;
+
+        static List<Island> PortedIslandList;
+
+        static List<Island> IslandClueList;
 
         static Ship PlayerShip;
 
         static List<Landmark> Landmarks = new List<Landmark>();
 
-        static string[] IslandNames;
+        static List<Landmark> LandmarksClueList;
 
         static List<Sprite> IslandSprites = new List<Sprite>();
 
@@ -154,6 +158,9 @@ namespace Ohoy_Exploration_Prototype
         static Screen NextScreen;
 
         static Journal PlayerJournal;
+
+        static string[] cardinalClueSnippets = File.ReadAllLines("CardinalCLueSnippets.txt");
+
 
         static bool ShouldQuit;
 
@@ -207,14 +214,13 @@ namespace Ohoy_Exploration_Prototype
             while (true)
             {
                 Point islandPoint = new Point(random.Next(AsciiSeaMap.Width - 20), random.Next(AsciiSeaMap.Height - 20));
-                bool doesOverlap = DoesOverlapIsland(islandPoint, 20, out _);
+                bool doesOverlap = DoesOverlapIsland(islandPoint, 30, out _);
                 if (!doesOverlap)
                 {
                     return islandPoint;
                 }
             }
         }
-
         static bool DeclareTreasureIsland(Island firstIsland)
         {
             while (true)
@@ -227,6 +233,7 @@ namespace Ohoy_Exploration_Prototype
                 else
                 {
                     AsciiSeaMap.TreasureIsland = Islands[islandIndex];
+                    LandmarksClueList.Remove(AsciiSeaMap.TreasureIsland.Landmark);
                     return true;
                 }
             }
@@ -280,13 +287,15 @@ namespace Ohoy_Exploration_Prototype
             //Initializing names for islands
             List<string> islandNames = new List<string>(IslandNames);
 
+            //Copy the landmarks for clue purposes
+            LandmarksClueList = new List<Landmark>(Landmarks);
+
             //Initializing landmarks for islands
             List<Landmark> landmarks = new List<Landmark>();
             for (int i = 0; i < 4; i++)
             {
                 landmarks.AddRange(Landmarks);
             }
-
 
             //Initialize Ship
             PlayerShip = new Ship
@@ -316,30 +325,21 @@ namespace Ohoy_Exploration_Prototype
                 {
                     Name = islandNames[i],
                     Landmark = landmarks[i],
-                    Explored = true,
+                    Explored = false,
                     Position = GenerateIslandPoint(),
                     Sprite = IslandSprites[GenerateIslandShape()],
                 };
                 Islands.Add(newIsland);
             }
 
+            //Add IslandLists
+            PortedIslandList = new List<Island>(Islands);
+            IslandClueList = new List<Island>(Islands);
             //Initialize Journal
             PlayerJournal = new Journal();
 
-            //Add test clues
-            Clue testIslandClue = new Clue
-            {
-                Text = "The treasure is NOT located on an island with Volcanoes. (UU)"
-            };
-            PlayerJournal.Clues.Add(testIslandClue);
 
-            Clue test2IslandClue = new Clue
-            {
-                Text = "The treasure island lies South of Scarlet Lagoon."
-            };
-            PlayerJournal.Clues.Add(test2IslandClue);
         }
-
         /// <summary>
         /// This method prints the text within the confines of the console screen.
         /// </summary>
@@ -358,7 +358,6 @@ namespace Ohoy_Exploration_Prototype
                 Thread.Sleep(PrintPauseMilliseconds);
             }
         }
-
         //Method that writes on the screen wit Map-coordinates
         static void ScreenWriteMap(int mapX, int mapY, string text)
         {
@@ -372,7 +371,6 @@ namespace Ohoy_Exploration_Prototype
             int screenY = mapY - PlayerCamera.Position.Y;
             ScreenWrite(screenX, screenY, symbol);
         }
-
         static void ScreenWrite(int x, int y, string text)
         {
             for (int i = 0; i < text.Length; i++)
@@ -390,7 +388,6 @@ namespace Ohoy_Exploration_Prototype
             }
 
         }
-
         static void CenterCamera()
         {
             PlayerCamera.Position.X = PlayerShip.Position.X - (PlayerCamera.Width / 2);
@@ -412,7 +409,6 @@ namespace Ohoy_Exploration_Prototype
                 PlayerCamera.Position.Y = AsciiSeaMap.Height - PlayerCamera.Height;
             }
         }
-
         /// <summary>
         /// A method which reads the sprites out of the textfiles, allowing the program to draw the sprites later.
         /// </summary>
@@ -493,7 +489,6 @@ namespace Ohoy_Exploration_Prototype
                 }
             }
         }
-
         static void DrawShip()
         {
             Sprite currentShipSprite = PlayerShip.Sprites[PlayerShip.CardinalDirection];
@@ -573,7 +568,6 @@ namespace Ohoy_Exploration_Prototype
             DrawShip();
             DrawFogOfWar();
         }
-
         //Method that screens.
         static void DrawNextScreen()
         {
@@ -604,7 +598,6 @@ namespace Ohoy_Exploration_Prototype
             CurrentScreen = NextScreen;
             NextScreen = temp;
         }
-
         static bool DoesOverlapIsland(Point mapGlobalPositionCenter, int radius, out Island overlappingIsland)
         {
             // Go over all points
@@ -648,7 +641,6 @@ namespace Ohoy_Exploration_Prototype
             overlappingIsland = null;
             return false;
         }
-
         static void ClearFogOfWar()
         {
             int radius = 11;
@@ -714,7 +706,6 @@ namespace Ohoy_Exploration_Prototype
             Console.ReadKey();
         }
         #endregion
-
         static void PresentQuitScreen()
         {
             Console.BackgroundColor = ConsoleColor.Black;
@@ -740,7 +731,6 @@ namespace Ohoy_Exploration_Prototype
                 }
             }
         }
-
         static void PresentJournalScreen(bool typeOutLastClue)
         {
 
@@ -753,11 +743,11 @@ namespace Ohoy_Exploration_Prototype
                 {
                     if (typeOutLastClue && i == PlayerJournal.Clues.Count - 2)
                     {
-                        Console.SetCursorPosition(Console.WindowWidth / 3, Console.WindowHeight / 3 + i);
+                        Console.SetCursorPosition(15, 10 + i);
                         PrintPauseMilliseconds = 800;
                         Print(PlayerJournal.Clues[i].Text);
                     }
-                    Console.SetCursorPosition(Console.WindowWidth / 3, Console.WindowHeight / 3 + i);
+                    Console.SetCursorPosition(15, 10 + i);
                     Print(PlayerJournal.Clues[i].Text);
                 }
                 Console.SetCursorPosition(Console.WindowWidth / 3, (Console.WindowHeight / 2) + 10);
@@ -814,7 +804,6 @@ namespace Ohoy_Exploration_Prototype
                 }
             }
         }
-
         static void DoSailingLoop()
         {
             while (true)
@@ -867,6 +856,7 @@ namespace Ohoy_Exploration_Prototype
 
                     if (portingIsland != AsciiSeaMap.TreasureIsland)
                     {
+                        portingIsland.Explored = true;
                         ReceiveClue(portingIsland);
                         PresentJournalScreen(true);
                         CurrentScreen.Clear();
@@ -907,19 +897,109 @@ namespace Ohoy_Exploration_Prototype
                 }
             }
         }
-
-
-
         static bool DoBattle(bool isBossBattle)
         {
             //TODO: Integrate Anton Prototype
             return true;
         }
-
         static void ReceiveClue(Island portingIsland)
         {
+            if (PortedIslandList.Contains(portingIsland))
+            {
+                //Generate Clue
+                PortedIslandList.Remove(portingIsland);
+                int rand = random.Next(20);
+                if (rand < 5 && LandmarksClueList.Count > 0)
+                {
+                    LandmarkGeneration();
+                }
+                else if (rand >= 5 && IslandClueList.Count > 0)
+                {
+                    CardinalClueGeneration();
+                }
+            }
+            else
+            {
+                return;
+            }
+        }
+
+        static void LandmarkGeneration()
+        {
+            //Determine what landmark
+            int randomLandmark = random.Next(LandmarksClueList.Count);
+            string landmark = LandmarksClueList[randomLandmark].Name;
+            string landmarkSymbol = LandmarksClueList[randomLandmark].LandmarkSymbol;
+            LandmarksClueList.Remove(LandmarksClueList[randomLandmark]);
+
+            //Add clue
+            Clue newClue = new Clue
+            {
+                Text = $"Apparently there are no {landmark} ({landmarkSymbol}) on the treasure island."
+            };
+            PlayerJournal.Clues.Add(newClue);
+        }
+        static void CardinalClueGeneration()
+        {
+            //Grab a random island to generate a clue for, then remove it from thelist of possible islands
+            int randomIsland = random.Next(IslandClueList.Count);
+            Island clueIsland = IslandClueList[randomIsland];
+            IslandClueList.Remove(clueIsland);
+
+            //Determine textsnippet for clue
+            int randomSnippet = random.Next(cardinalClueSnippets.Length);
+            string textSnippet = cardinalClueSnippets[randomSnippet];
+            string direction = "North";
+            //Figure out the difference between X.coordinates and Y
+            int deltaX = clueIsland.Position.X - AsciiSeaMap.TreasureIsland.Position.X;
+            int deltaY = clueIsland.Position.Y - AsciiSeaMap.TreasureIsland.Position.Y;
+            int flipDeltaX = deltaX;
+            int flipDeltaY = deltaY;
+            if (deltaX < 0)
+            {
+                flipDeltaX = Math.Abs(deltaX);
+            }
+            else if (deltaY < 0)
+            {
+                flipDeltaY = Math.Abs(deltaY);
+            }
+            //Determine direction from treasure island 
+            if (flipDeltaX > flipDeltaY)
+            {
+                if (deltaX > 0)
+                {
+                    //The clueisland is west of the treasure island.
+                    direction = "East";
+                }
+                else
+                {
+                    //The clueisland is east of the treasure island.
+                    direction = "West";
+                }
+            }
+            else if (flipDeltaY > flipDeltaX)
+            {
+                if (deltaY > 0)
+                {
+                    //The Clueisland is north of the treasure island.
+                    direction = "North";
+                }
+                else
+                {
+                    //The Clueisland is south of the treasure island.
+                    direction = "South";
+                }
+            }
+            Clue newClue = new Clue
+            {
+                Text = $"{textSnippet} {clueIsland.Name} lies {direction} of the treasure island."
+            };
+            PlayerJournal.Clues.Add(newClue);
 
         }
+        /// <summary>
+        /// Winscreen that displays if you manage to find the treasure!
+        /// </summary>
         static void PresentWinScreen()
         {
             Console.Clear();
@@ -931,8 +1011,9 @@ namespace Ohoy_Exploration_Prototype
 
             Print(winText);
         }
-
-
+        /// <summary>
+        /// Message that displays if you lost the game!
+        /// </summary>
         static void PresentGameOverScreen()
         {
 
@@ -945,11 +1026,12 @@ namespace Ohoy_Exploration_Prototype
             while (true)
             {
                 InitializeObjects();
-                /*
+
+
                 PresentTitleScreen();
                 PresentStoryScreen();
                 PresentTutorialScreen();
-                */
+
                 bool foundTreasure = DoGameplayLoop();
                 if (ShouldQuit)
                 {
