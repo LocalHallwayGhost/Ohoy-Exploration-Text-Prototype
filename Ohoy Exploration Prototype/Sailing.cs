@@ -7,7 +7,7 @@ using System.Threading;
 
 namespace Ohoy_Exploration_Prototype
 {
-    internal class Program
+    internal partial class Program
     {
         //Type Definitions
         enum CardinalDirection
@@ -269,15 +269,15 @@ namespace Ohoy_Exploration_Prototype
             //Initialize Camera
             PlayerCamera = new Camera
             {
-                Width = 150,
+                Width = 149,
                 Height = 50,
                 Position = new Point(0, 0),
             };
 
             //Initialize Console
-            Console.WindowWidth = PlayerCamera.Width;
-            Console.WindowHeight = PlayerCamera.Height;
-            Console.SetBufferSize(Console.WindowWidth, Console.WindowHeight);
+            Console.Clear();
+            Console.SetWindowSize(PlayerCamera.Width + 1, PlayerCamera.Height);
+            Console.SetBufferSize(PlayerCamera.Width + 1, PlayerCamera.Height);
             Console.CursorVisible = false;
 
             //Initialize Screens 
@@ -668,6 +668,7 @@ namespace Ohoy_Exploration_Prototype
         /// </summary>
         static void PresentTitleScreen()
         {
+            Console.BackgroundColor = ConsoleColor.Black;
             Console.Clear();
             string title = "OHOY! - A Text-Based Exploration Prototype";
             Console.SetCursorPosition((Console.WindowWidth - title.Length) / 2, Console.WindowHeight / 2);
@@ -741,14 +742,22 @@ namespace Ohoy_Exploration_Prototype
             {
                 for (int i = 0; i < PlayerJournal.Clues.Count; i++)
                 {
-                    if (typeOutLastClue && i == PlayerJournal.Clues.Count - 2)
+                    if (typeOutLastClue && i == PlayerJournal.Clues.Count - 1)
+                    {
+                        Clue lastClue = PlayerJournal.Clues[i];
+                        Console.SetCursorPosition(15, 10 + i);
+                        for (int j = 0; j < lastClue.Text.Length; j++)
+                        {
+                            Console.Write(lastClue.Text[j]);
+                            Thread.Sleep(10);
+                        }
+
+                    }
+                    else
                     {
                         Console.SetCursorPosition(15, 10 + i);
-                        PrintPauseMilliseconds = 800;
                         Print(PlayerJournal.Clues[i].Text);
                     }
-                    Console.SetCursorPosition(15, 10 + i);
-                    Print(PlayerJournal.Clues[i].Text);
                 }
                 Console.SetCursorPosition(Console.WindowWidth / 3, (Console.WindowHeight / 2) + 10);
                 Console.WriteLine("Press ENTER to return to the ASCII-Sea!");
@@ -854,7 +863,7 @@ namespace Ohoy_Exploration_Prototype
                         return;
                     }
 
-                    if (portingIsland != AsciiSeaMap.TreasureIsland)
+                    if (portingIsland != AsciiSeaMap.TreasureIsland && portingIsland.Explored != true)
                     {
                         portingIsland.Explored = true;
                         ReceiveClue(portingIsland);
@@ -1042,11 +1051,12 @@ namespace Ohoy_Exploration_Prototype
                     Console.BackgroundColor = ConsoleColor.Black;
                     PresentWinScreen();
                     Console.ReadKey();
-                    return;
+
                 }
                 else
                 {
                     PresentGameOverScreen();
+
                 }
             }
         }
